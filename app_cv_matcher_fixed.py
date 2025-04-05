@@ -22,8 +22,14 @@ def extraer_texto_pdf(file):
 
 def generar_descriptor(p1, p2, p3):
     prompt = f"""
-Actúa como reclutador experto. Con base en estas respuestas, genera un descriptor profesional del cargo:
+Actúa como un reclutador profesional con experiencia en distintas industrias. A partir de las siguientes respuestas del usuario, redacta un descriptor profesional del cargo, listo para usarse en una oferta laboral. El texto debe ser claro, atractivo y formal, y debe incluir:
 
+- Propósito del cargo  
+- Principales funciones o responsabilidades  
+- Habilidades técnicas requeridas  
+- Perfil humano o experiencia deseable
+
+Respuestas del Usuario
 1. ¿Qué tipo de cargo buscas?: {p1}
 2. ¿Qué conocimientos técnicos o habilidades necesita?: {p2}
 3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
@@ -73,7 +79,7 @@ def generar_excel(resumen, nombre_cargo):
     excel_buffer = BytesIO()
     df.to_excel(excel_buffer, index=False)
     excel_buffer.seek(0)
-    return excel_buffer, f"Nota Cargo 1 ({nombre_cargo}).xlsx"
+    return excel_buffer, f"Nota ({nombre_cargo}).xlsx"
 
 def generar_word(resultados, nombre_cargo):
     doc = Document()
@@ -84,7 +90,7 @@ def generar_word(resultados, nombre_cargo):
     word_buffer = BytesIO()
     doc.save(word_buffer)
     word_buffer.seek(0)
-    return word_buffer, f"Detalle Cargo 1 ({nombre_cargo}).docx"
+    return word_buffer, f"Detalle ({nombre_cargo}).docx"
 
 # Inicio de app
 st.title("🤖 Análisis de CV con IA")
@@ -109,6 +115,7 @@ if modo == "📂 Cargar Descriptor":
         elif archivo.type == "application/pdf":
             descriptor = extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
+        st.session_state.nombre_cargo = archivo.name.replace(".txt", "").replace(".pdf", "")
         st.success("✅ Descriptor cargado correctamente.")
 
 elif modo == "💬 Hacer Preguntas":
@@ -127,7 +134,9 @@ elif modo == "💬 Hacer Preguntas":
 if st.session_state.get("descriptor"):
     descriptor = st.session_state.descriptor
     nombre_cargo = st.session_state.get("nombre_cargo", "")
-    st.text_area("📝 Descriptor generado:", descriptor, height=150)
+    st.subheader(f"📝 Descriptor: {nombre_cargo}")
+    if descriptor.strip():
+        st.text_area("Contenido del descriptor:", descriptor, height=150)
 
     st.divider()
     st.subheader("📄 Carga los CVs en PDF")
