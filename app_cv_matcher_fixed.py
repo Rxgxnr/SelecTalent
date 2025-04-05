@@ -89,8 +89,7 @@ def generar_word(resultados, nombre_cargo):
 
 # Botón para reiniciar completamente la app
 if st.button("🔄 Consultar Otro Cargo"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
+    st.session_state.clear()
     st.experimental_rerun()
 
 # Inicio de app
