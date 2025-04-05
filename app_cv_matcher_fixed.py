@@ -6,7 +6,7 @@ from docx import Document
 from io import BytesIO
 
 # Configuracion inicial
-st.set_page_config(page_title="AI CV Matcher", layout="centered")
+st.set_page_config(page_title="Bienvenido/a a Select Talent", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Funciones
