@@ -76,23 +76,6 @@ Nota de afinidad con el cargo (de 1 a 100):"""
     )
     return response.choices[0].message.content.strip()
 
-def extraer_nota(texto):
-    try:
-        lineas = texto.split("\n")
-        for linea in reversed(lineas):
-            if "Nota de afinidad" in linea:
-                return int(''.join(filter(str.isdigit, linea.strip().split(":")[-1])))
-    except:
-        return 0
-    return 0
-
-def generar_excel(resumen, nombre_cargo):
-    df = pd.DataFrame(resumen)
-    excel_buffer = BytesIO()
-    df.to_excel(excel_buffer, index=False)
-    excel_buffer.seek(0)
-    return excel_buffer, f"Nota ({nombre_cargo}).xlsx"
-
 def generar_word(resultados, nombre_cargo):
     doc = Document()
     for r in resultados:
@@ -110,8 +93,6 @@ if "archivos_cv" not in st.session_state:
     st.session_state.archivos_cv = []
 if "resultados" not in st.session_state:
     st.session_state.resultados = []
-if "resumen" not in st.session_state:
-    st.session_state.resumen = []
 if "descriptor" not in st.session_state:
     st.session_state.descriptor = ""
 
@@ -128,8 +109,9 @@ if modo == "📂 Cargar Descriptor":
             descriptor = extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
         st.session_state.nombre_cargo = archivo.name.replace(".txt", "").replace(".pdf", "")
-        resumen_desc = generar_resumen_descriptor(descriptor)
-        st.session_state.resumen_descriptor = resumen_desc
+        if "resumen_descriptor" not in st.session_state:
+            resumen_desc = generar_resumen_descriptor(descriptor)
+            st.session_state.resumen_descriptor = resumen_desc
         st.success("✅ Descriptor cargado correctamente.")
 
 elif modo == "💬 Hacer Preguntas":
@@ -143,6 +125,8 @@ elif modo == "💬 Hacer Preguntas":
         st.session_state.descriptor = descriptor_generado
         nombre_cargo = p1
         st.session_state.nombre_cargo = nombre_cargo
+        resumen_desc = generar_resumen_descriptor(descriptor_generado)
+        st.session_state.resumen_descriptor = resumen_desc
         st.success("✅ Descriptor generado correctamente")
 
 if st.session_state.get("descriptor"):
@@ -166,7 +150,6 @@ if st.session_state.get("descriptor"):
     if st.session_state.archivos_cv:
         if st.button("🔍 Analizar CVs"):
             resultados = []
-            resumen = []
             for archivo in st.session_state.archivos_cv:
                 texto = extraer_texto_pdf(archivo)
                 if texto.startswith("❌"):
@@ -175,24 +158,28 @@ if st.session_state.get("descriptor"):
                     with st.spinner(f"Analizando {archivo.name}..."):
                         resultado = analizar_cv(descriptor, texto)
                     resultados.append({"nombre": archivo.name, "resultado": resultado})
-                    resumen.append({
-                        "Nombre CV": archivo.name,
-                        "Cargo": nombre_cargo,
-                        "Nota de Afinidad": extraer_nota(resultado)
-                    })
                     st.success(f"✅ CV '{archivo.name}' analizado con éxito")
 
             st.session_state.resultados = resultados
-            st.session_state.resumen = resumen
 
-if st.session_state.get("resumen"):
+if st.session_state.get("resultados"):
     st.divider()
     st.subheader("📥 Exportar Resultados")
     col1, col2 = st.columns(2)
 
     with col1:
-        excel_data, excel_name = generar_excel(st.session_state.resumen, st.session_state.get("nombre_cargo", "Cargo"))
-        st.download_button("📊 Descargar Excel", excel_data, file_name=excel_name)
+        resumen = [
+            {
+                "Nombre CV": r["nombre"],
+                "Cargo": st.session_state.get("nombre_cargo", ""),
+            }
+            for r in st.session_state.resultados
+        ]
+        df = pd.DataFrame(resumen)
+        excel_buffer = BytesIO()
+        df.to_excel(excel_buffer, index=False)
+        excel_buffer.seek(0)
+        st.download_button("📊 Descargar Excel", excel_buffer, file_name=f"Nota ({st.session_state.get('nombre_cargo', 'Cargo')}).xlsx")
 
     with col2:
         word_data, word_name = generar_word(st.session_state.resultados, st.session_state.get("nombre_cargo", "Cargo"))
