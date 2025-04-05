@@ -1,14 +1,17 @@
 import streamlit as st
 from openai import OpenAI
-import fitz
+import fitz  # PyMuPDF
 import os
 import pandas as pd
-from io import BytesIO
 from docx import Document
+from io import BytesIO
 
 st.set_page_config(page_title="AI CV Matcher", layout="centered")
 
+# Inicializar cliente OpenAI
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# Funciones
 
 def extraer_texto_pdf(file):
     try:
@@ -19,6 +22,12 @@ def extraer_texto_pdf(file):
         return texto
     except Exception as e:
         return f"❌ Error al leer PDF: {e}"
+
+def extraer_texto_txt(file):
+    try:
+        return file.read().decode("utf-8")
+    except Exception as e:
+        return f"❌ Error al leer TXT: {e}"
 
 def generar_descriptor(p1, p2, p3):
     prompt = f"""
@@ -58,47 +67,30 @@ Nota de afinidad con el cargo (de 1 a 100):"""
     )
     return response.choices[0].message.content.strip()
 
-def crear_archivo_excel(datos):
-    df = pd.DataFrame(datos, columns=["Nombre CV", "Cargo", "Nota de Afinidad"])
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return output
-
-def crear_archivo_word(resultados):
-    doc = Document()
-    for nombre_cv, resultado in resultados.items():
-        doc.add_heading(f"Resultado para {nombre_cv}", level=1)
-        doc.add_paragraph(resultado)
-        doc.add_page_break()
-    output = BytesIO()
-    doc.save(output)
-    output.seek(0)
-    return output
-
+# App
 st.title("🤖 Análisis de CV con IA")
 
 if "archivos_cv" not in st.session_state:
     st.session_state.archivos_cv = []
-if "resultados" not in st.session_state:
-    st.session_state.resultados = {}
-if "datos_excel" not in st.session_state:
-    st.session_state.datos_excel = []
+if "analisis" not in st.session_state:
+    st.session_state.analisis = []
+if "descriptor" not in st.session_state:
+    st.session_state.descriptor = ""
 
 modo = st.radio("¿Quieres cargar un descriptor o prefieres que te ayude?", ["📂 Cargar Descriptor", "💬 Hacer Preguntas"])
 
 descriptor = ""
 
 if modo == "📂 Cargar Descriptor":
-    archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"], key="descriptor")
+    archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"])
     if archivo:
         if archivo.type == "text/plain":
-            descriptor = archivo.read().decode("utf-8")
+            descriptor = extraer_texto_txt(archivo)
         elif archivo.type == "application/pdf":
             descriptor = extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
         st.success("✅ Descriptor cargado correctamente.")
+
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
         p1 = st.text_input("1. ¿Qué tipo de cargo buscas?")
@@ -112,10 +104,9 @@ elif modo == "💬 Hacer Preguntas":
         st.success("✅ Descriptor generado correctamente")
 
 if st.session_state.get("descriptor", "").strip():
-    descriptor = st.session_state["descriptor"]
+    descriptor = st.session_state.descriptor
     st.text_area("📝 Descriptor generado:", descriptor, height=150)
 
-if descriptor:
     st.divider()
     st.subheader("📄 Carga los CVs en PDF")
 
@@ -131,8 +122,7 @@ if descriptor:
 
     if st.session_state.archivos_cv:
         if st.button("🔍 Analizar CVs"):
-            st.session_state.resultados.clear()
-            st.session_state.datos_excel.clear()
+            st.session_state.analisis = []
             for archivo in st.session_state.archivos_cv:
                 texto = extraer_texto_pdf(archivo)
                 if texto.startswith("❌"):
@@ -140,33 +130,52 @@ if descriptor:
                 else:
                     with st.spinner(f"Analizando {archivo.name}..."):
                         resultado = analizar_cv(descriptor, texto)
+                        st.session_state.analisis.append({
+                            "nombre": archivo.name,
+                            "resultado": resultado,
+                            "nota": extraer_nota(resultado),
+                            "cargo": p1 if modo == "💬 Hacer Preguntas" else "-"
+                        })
+            st.session_state.procesado = True
 
-                    st.markdown(f"### 📋 Resultado para {archivo.name}")
-                    st.code(resultado, language="markdown")
-                    st.session_state.resultados[archivo.name] = resultado
+    if st.session_state.get("procesado"):
+        for analisis in st.session_state.analisis:
+            st.markdown(f"### 📋 Resultado para {analisis['nombre']}")
+            st.code(analisis["resultado"], language="markdown")
 
-                    nota_linea = [line for line in resultado.split("\n") if "Nota de afinidad" in line]
-                    nota = "".join(filter(str.isdigit, nota_linea[0])) if nota_linea else "0"
-                    if nota:
-                        try:
-                            nota = int(nota)
-                            nota = min(max(nota, 0), 100)
-                        except:
-                            nota = 0
-                    st.session_state.datos_excel.append([archivo.name, p1 if modo == "💬 Hacer Preguntas" else "Cargo", f"{nota}/100"])
+        # Botones de descarga
+        df = pd.DataFrame([{
+            "Nombre CV": a["nombre"],
+            "Cargo": a["cargo"],
+            "Nota de Afinidad": f"{a['nota']}/100"
+        } for a in st.session_state.analisis])
 
-        if st.session_state.resultados:
-            st.divider()
-            st.subheader("📥 Descarga los resultados")
-            col1, col2 = st.columns(2)
-            with col1:
-                excel_file = crear_archivo_excel(st.session_state.datos_excel)
-                st.download_button("📊 Descargar Excel", data=excel_file, file_name="resumen_cvs.xlsx")
-            with col2:
-                word_file = crear_archivo_word(st.session_state.resultados)
-                st.download_button("📝 Descargar Word", data=word_file, file_name="analisis_postulantes.docx")
+        output_excel = BytesIO()
+        df.to_excel(output_excel, index=False)
+        st.download_button("📥 Descargar resumen en Excel", data=output_excel.getvalue(), file_name="resumen_cv.xlsx")
 
-            st.divider()
-            if st.button("🔄 Consultar Otro Cargo"):
-                st.session_state.clear()
-                st.experimental_rerun()
+        doc = Document()
+        for a in st.session_state.analisis:
+            doc.add_heading(f"Resultado para {a['nombre']}", level=1)
+            for linea in a["resultado"].split("\n"):
+                doc.add_paragraph(linea)
+            doc.add_page_break()
+
+        output_word = BytesIO()
+        doc.save(output_word)
+        st.download_button("📥 Descargar informe en Word", data=output_word.getvalue(), file_name="analisis_cv.docx")
+
+        if st.button("🔁 Consultar Otro Cargo"):
+            st.session_state.clear()
+            st.experimental_rerun()
+
+# Utilidad
+
+def extraer_nota(texto):
+    import re
+    match = re.search(r"(\d{1,3})\s*/?\s*100", texto)
+    if match:
+        return int(match.group(1))
+    else:
+        match = re.search(r"(\d{1,3})", texto)
+        return int(match.group(1)) if match else 0
