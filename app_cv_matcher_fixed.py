@@ -87,11 +87,11 @@ def generar_word(resultados, nombre_cargo):
     word_buffer.seek(0)
     return word_buffer, f"Detalle ({nombre_cargo}).docx"
 
-# Reinicio total al cambiar de cargo
+# Botón para reiniciar completamente la app
 if st.button("🔄 Consultar Otro Cargo"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Inicio de app
 st.title("🤖 Análisis de CV con IA")
