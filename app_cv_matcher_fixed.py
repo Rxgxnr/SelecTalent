@@ -65,9 +65,16 @@ def generar_word(resultados, nombre_cargo):
 
 def mostrar_grafico_ranking(resumen):
     df = pd.DataFrame(resumen)
-    df["Nota 1-10"] = (df["Nota de Afinidad"] / 10).clip(upper=10)
-    fig = px.bar(df.sort_values("Nota de Afinidad", ascending=False), x="Nombre CV", y="Nota 1-10",
-                 color="Nota 1-10", text="Nota 1-10", title="Ranking de Afinidad (Escala 1-10)")
+    df["Nota 1-10"] = (df["Nota de Afinidad"] / 10).round(1).clip(upper=10)
+    fig = px.bar(
+        df.sort_values("Nota 1-10", ascending=False),
+        x="Nombre CV",
+        y="Nota 1-10",
+        color="Nota 1-10",
+        text="Nota 1-10",
+        title="Ranking de Afinidad (Escala 1-10)"
+    )
+    fig.update_traces(textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Reinicio de app ---
