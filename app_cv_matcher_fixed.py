@@ -87,6 +87,12 @@ def generar_word(resultados, nombre_cargo):
     word_buffer.seek(0)
     return word_buffer, f"Detalle ({nombre_cargo}).docx"
 
+# Reinicio total al cambiar de cargo
+if st.button("🔄 Consultar Otro Cargo"):
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
+
 # Inicio de app
 st.title("🤖 Análisis de CV con IA")
 if "archivos_cv" not in st.session_state:
@@ -184,8 +190,3 @@ if st.session_state.get("resultados"):
     with col2:
         word_data, word_name = generar_word(st.session_state.resultados, st.session_state.get("nombre_cargo", "Cargo"))
         st.download_button("📄 Descargar Word", word_data, file_name=word_name)
-
-    st.divider()
-    if st.button("🔄 Consultar Otro Cargo"):
-        st.session_state.clear()
-        st.rerun()
