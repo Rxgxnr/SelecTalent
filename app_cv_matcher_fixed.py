@@ -111,8 +111,8 @@ elif modo == "💬 Hacer Preguntas":
         st.session_state.descriptor = descriptor_generado
         st.success("✅ Descriptor generado correctamente")
 
-if "descriptor" in st.session_state and st.session_state.descriptor.strip():
-    descriptor = st.session_state.descriptor
+if st.session_state.get("descriptor", "").strip():
+    descriptor = st.session_state["descriptor"]
     st.text_area("📝 Descriptor generado:", descriptor, height=150)
 
 if descriptor:
