@@ -1,3 +1,6 @@
 streamlit
 openai
 PyMuPDF
+pandas
+openpyxl
+python-docx
