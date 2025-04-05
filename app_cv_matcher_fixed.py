@@ -76,22 +76,23 @@ descriptor = ""
 if modo == "📂 Cargar Descriptor":
     archivo = st.file_uploader("Sube un descriptor en .txt", type=["txt"])
     if archivo:
+    descriptor = ""
     if archivo.type == "text/plain":
         descriptor = archivo.read().decode("utf-8")
     elif archivo.type == "application/pdf":
         try:
             doc = fitz.open(stream=archivo.read(), filetype="pdf")
-            descriptor = ""
             for page in doc:
                 descriptor += page.get_text()
         except Exception as e:
             st.error(f"❌ Error al leer el PDF: {e}")
     else:
         st.warning("⚠️ Formato no compatible.")
-    
+
     if descriptor:
         st.success("✅ Descriptor cargado correctamente.")
         st.session_state.descriptor = descriptor
+        
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
         p1 = st.text_input("1. ¿Qué tipo de cargo buscas?")
