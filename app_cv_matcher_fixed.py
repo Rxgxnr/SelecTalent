@@ -181,7 +181,6 @@ if st.session_state.get("resumen"):
         st.download_button("📄 Descargar Word", word_data, file_name="analisis_cv.docx")
 
     st.divider()
-    if st.button("🔁 Consultar Otro Cargo"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.experimental_rerun()
+    if st.button("🔄 Consultar Otro Cargo"):
+        st.rerun()
+
