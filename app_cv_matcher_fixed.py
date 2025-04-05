@@ -6,7 +6,7 @@ from docx import Document
 from io import BytesIO
 
 # Configuracion inicial
-st.set_page_config(page_title="Bienvenido/a a Select Talent", layout="centered")
+st.set_page_config(page_title="Bienvenido/a a SelecTalent", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Funciones
@@ -35,6 +35,18 @@ Respuestas del Usuario
 3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
 
 Redáctalo de forma clara y profesional.
+"""
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
+
+def generar_resumen_descriptor(descriptor):
+    prompt = f"""
+Lee el siguiente descriptor de cargo y entrega un resumen breve de su contenido. El resumen debe explicar qué perfil se busca, qué conocimientos y habilidades se requieren, y cualquier detalle relevante:
+
+{descriptor}
 """
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -116,6 +128,8 @@ if modo == "📂 Cargar Descriptor":
             descriptor = extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
         st.session_state.nombre_cargo = archivo.name.replace(".txt", "").replace(".pdf", "")
+        resumen_desc = generar_resumen_descriptor(descriptor)
+        st.session_state.resumen_descriptor = resumen_desc
         st.success("✅ Descriptor cargado correctamente.")
 
 elif modo == "💬 Hacer Preguntas":
@@ -134,9 +148,14 @@ elif modo == "💬 Hacer Preguntas":
 if st.session_state.get("descriptor"):
     descriptor = st.session_state.descriptor
     nombre_cargo = st.session_state.get("nombre_cargo", "")
+    resumen_descriptor = st.session_state.get("resumen_descriptor", "")
+
     st.subheader(f"📝 Descriptor: {nombre_cargo}")
     if descriptor.strip():
         st.text_area("Contenido del descriptor:", descriptor, height=150)
+
+    if resumen_descriptor:
+        st.info(f"📌 **Resumen del Descriptor:**\n{resumen_descriptor}")
 
     st.divider()
     st.subheader("📄 Carga los CVs en PDF")
