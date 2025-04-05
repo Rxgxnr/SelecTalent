@@ -1,17 +1,14 @@
 import streamlit as st
 from openai import OpenAI
-import fitz  # PyMuPDF
+import fitz
 import os
 import pandas as pd
-from docx import Document
 from io import BytesIO
+from docx import Document
 
 st.set_page_config(page_title="AI CV Matcher", layout="centered")
 
-# Inicializar cliente OpenAI
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-# Funciones
 
 def extraer_texto_pdf(file):
     try:
@@ -61,36 +58,47 @@ Nota de afinidad con el cargo (de 1 a 100):"""
     )
     return response.choices[0].message.content.strip()
 
-# Interfaz
+def crear_archivo_excel(datos):
+    df = pd.DataFrame(datos, columns=["Nombre CV", "Cargo", "Nota de Afinidad"])
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    return output
+
+def crear_archivo_word(resultados):
+    doc = Document()
+    for nombre_cv, resultado in resultados.items():
+        doc.add_heading(f"Resultado para {nombre_cv}", level=1)
+        doc.add_paragraph(resultado)
+        doc.add_page_break()
+    output = BytesIO()
+    doc.save(output)
+    output.seek(0)
+    return output
+
 st.title("🤖 Análisis de CV con IA")
 
 if "archivos_cv" not in st.session_state:
     st.session_state.archivos_cv = []
+if "resultados" not in st.session_state:
+    st.session_state.resultados = {}
+if "datos_excel" not in st.session_state:
+    st.session_state.datos_excel = []
 
 modo = st.radio("¿Quieres cargar un descriptor o prefieres que te ayude?", ["📂 Cargar Descriptor", "💬 Hacer Preguntas"])
 
-# Obtener descriptor
 descriptor = ""
+
 if modo == "📂 Cargar Descriptor":
-    archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"])
+    archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"], key="descriptor")
     if archivo:
-        descriptor = ""
         if archivo.type == "text/plain":
             descriptor = archivo.read().decode("utf-8")
         elif archivo.type == "application/pdf":
-            try:
-                doc = fitz.open(stream=archivo.read(), filetype="pdf")
-                for page in doc:
-                    descriptor += page.get_text()
-            except Exception as e:
-                st.error(f"❌ Error al leer el PDF: {e}")
-        else:
-            st.warning("⚠️ Formato no compatible.")
-
-        if descriptor:
-            st.success("✅ Descriptor cargado correctamente.")
-            st.session_state.descriptor = descriptor
-
+            descriptor = extraer_texto_pdf(archivo)
+        st.session_state.descriptor = descriptor
+        st.success("✅ Descriptor cargado correctamente.")
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
         p1 = st.text_input("1. ¿Qué tipo de cargo buscas?")
@@ -112,9 +120,9 @@ if descriptor:
     st.subheader("📄 Carga los CVs en PDF")
 
     archivos_cv = st.file_uploader(
-        "Selecciona uno o varios archivos",
-        type=["pdf"],
-        accept_multiple_files=True,
+        "Selecciona uno o varios archivos", 
+        type=["pdf"], 
+        accept_multiple_files=True, 
         key="file_uploader"
     )
 
@@ -123,9 +131,8 @@ if descriptor:
 
     if st.session_state.archivos_cv:
         if st.button("🔍 Analizar CVs"):
-            resultados = []
-            doc_word = Document()
-
+            st.session_state.resultados.clear()
+            st.session_state.datos_excel.clear()
             for archivo in st.session_state.archivos_cv:
                 texto = extraer_texto_pdf(archivo)
                 if texto.startswith("❌"):
@@ -136,33 +143,30 @@ if descriptor:
 
                     st.markdown(f"### 📋 Resultado para {archivo.name}")
                     st.code(resultado, language="markdown")
+                    st.session_state.resultados[archivo.name] = resultado
 
-                    nota = 0
-                    for line in resultado.splitlines():
-                        if "afinidad" in line.lower():
-                            try:
-                                nota = int(''.join(filter(str.isdigit, line)))
-                            except:
-                                nota = 0
+                    nota_linea = [line for line in resultado.split("\n") if "Nota de afinidad" in line]
+                    nota = "".join(filter(str.isdigit, nota_linea[0])) if nota_linea else "0"
+                    if nota:
+                        try:
+                            nota = int(nota)
+                            nota = min(max(nota, 0), 100)
+                        except:
+                            nota = 0
+                    st.session_state.datos_excel.append([archivo.name, p1 if modo == "💬 Hacer Preguntas" else "Cargo", f"{nota}/100"])
 
-                    resultados.append({
-                        "Nombre CV": archivo.name,
-                        "Cargo": p1 if modo == "💬 Hacer Preguntas" else "-",
-                        "Nota de Afinidad": nota
-                    })
+        if st.session_state.resultados:
+            st.divider()
+            st.subheader("📥 Descarga los resultados")
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_file = crear_archivo_excel(st.session_state.datos_excel)
+                st.download_button("📊 Descargar Excel", data=excel_file, file_name="resumen_cvs.xlsx")
+            with col2:
+                word_file = crear_archivo_word(st.session_state.resultados)
+                st.download_button("📝 Descargar Word", data=word_file, file_name="analisis_postulantes.docx")
 
-                    doc_word.add_heading(f"Resultado para {archivo.name}", level=1)
-                    doc_word.add_paragraph(resultado)
-                    doc_word.add_page_break()
-
-            df = pd.DataFrame(resultados)
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False)
-            excel_buffer.seek(0)
-
-            word_buffer = BytesIO()
-            doc_word.save(word_buffer)
-            word_buffer.seek(0)
-
-            st.download_button("⬇️ Descargar resumen en Excel", excel_buffer, file_name="resumen_cv.xlsx")
-            st.download_button("⬇️ Descargar informe en Word", word_buffer, file_name="informe_detallado.docx")
+            st.divider()
+            if st.button("🔄 Consultar Otro Cargo"):
+                st.session_state.clear()
+                st.experimental_rerun()
