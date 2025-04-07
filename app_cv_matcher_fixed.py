@@ -21,28 +21,38 @@ def extraer_texto_pdf(file):
         return f"❌ Error al leer PDF: {e}"
 
 def generar_descriptor(p1, p2, p3):
-    prompt = f"""Actúa como un reclutador profesional con experiencia en distintas industrias...
+    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
+Solicita al usuario información sobre la empresa, el área que contratará, el objetivo general del puesto, principales funciones, requisitos académicos, experiencia laboral deseada, habilidades técnicas y competencias blandas.
+Con esta información, genera un Descriptor de Cargo completo, siguiendo el formato estándar:
 1. ¿Qué tipo de cargo buscas?: {p1}
 2. ¿Qué conocimientos técnicos o habilidades necesita?: {p2}
 3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
-Redáctalo de forma clara y profesional."""
+El descriptor debe ser claro, formal y ordenado, listo para usarse en procesos de reclutamiento."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
-    prompt = f"""Lee el siguiente descriptor de cargo y entrega un resumen breve...
-{descriptor}"""
+    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
+Si el usuario ya tiene un Descriptor de Cargo (por ejemplo, en formato PDF o Word), solicita que lo adjunte.
+Una vez recibido, haz un resumen ejecutivo del Descriptor,
+{descriptor} El resumen debe ser breve, directo y servir como base para evaluar CVs."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def analizar_cv(descriptor, texto_cv):
-    prompt = f"""Analiza el siguiente CV en base al descriptor de cargo...
+    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
+Analiza los CVs adjuntos en función del Descriptor de Cargo resumido.
 Descriptor del cargo: {descriptor}
 Currículum del candidato: {texto_cv}
-Entregar análisis en este formato:
-Fortalezas: -
-Debilidades: -
-Nota de afinidad con el cargo (de 1 a 100):"""
+Para cada candidato, entrega:
+Evaluación de Formación Académica
+Evaluación de Experiencia Laboral
+Evaluación de Habilidades Técnicas
+Evaluación de Competencias Blandas
+Fortalezas
+Debilidades
+Nota de Afinidad al Cargo (Muy Alta, Alta, Media, Baja, Muy Baja)
+Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
