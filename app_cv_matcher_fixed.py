@@ -26,13 +26,13 @@ def generar_descriptor(p1, p2, p3):
 2. ¿Qué conocimientos técnicos o habilidades necesita?: {p2}
 3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
 Redáctalo de forma clara y profesional."""
-    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
+    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
     prompt = f"""Lee el siguiente descriptor de cargo y entrega un resumen breve...
 {descriptor}"""
-    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
+    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def analizar_cv(descriptor, texto_cv):
@@ -43,7 +43,7 @@ Entregar análisis en este formato:
 Fortalezas: -
 Debilidades: -
 Nota de afinidad con el cargo (de 1 a 100):"""
-    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
+    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def extraer_nota(texto):
