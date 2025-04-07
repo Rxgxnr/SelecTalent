@@ -159,7 +159,11 @@ if st.session_state.descriptor:
                     resultado = analizar_cv(st.session_state.descriptor, texto)
                 nota = extraer_nota(resultado)
                 resultados.append({"nombre": archivo.name, "resultado": resultado, "nota": nota})
-                resumen.append({"Nombre CV": archivo.name, "Cargo": st.session_state.nombre_cargo, "Nota de Afinidad": nota})
+                resumen.append({
+    "Nombre CV": archivo.name,
+    "Cargo": nombre_cargo,
+    "Nota de Afinidad": nota  # ← esto será "Alta", "Media", etc.
+})
                 st.success(f"✅ CV '{archivo.name}' analizado con éxito")
             st.session_state.resultados = resultados
             st.session_state.resumen = resumen
