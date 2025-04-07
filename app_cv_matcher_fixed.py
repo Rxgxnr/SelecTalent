@@ -25,22 +25,70 @@ def extraer_texto_pdf(file):
         return f"❌ Error al leer PDF: {e}"
 
 def generar_descriptor(p1, p2, p3):
-    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Solicita al usuario información sobre la empresa, el área que contratará, el objetivo general del puesto, principales funciones, requisitos académicos, experiencia laboral deseada, habilidades técnicas y competencias blandas.
-Con esta información, genera un Descriptor de Cargo completo, siguiendo el formato estándar:
-1. ¿Qué tipo de cargo buscas?: {p1}
-2. ¿Qué conocimientos técnicos o habilidades necesita?: {p2}
-3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
-El descriptor debe ser claro, formal y ordenado, listo para usarse en procesos de reclutamiento."""
-    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+    prompt = f"""Actúa como un Agente de Recursos Humanos experto. Necesito que generes un Descriptor de Cargo completo basado en:
+1. Tipo de cargo: {p1}
+2. Habilidades técnicas necesarias: {p2}
+3. Perfil humano deseable: {p3}
+
+Instrucciones específicas:
+- Usa EXCLUSIVAMENTE categorías textuales (Muy Alta, Alta, Media, Baja, Muy Baja) para cualquier evaluación
+- NO uses escalas numéricas (1-10, 1-100, porcentajes)
+- El formato debe incluir:
+  * Nombre del cargo
+  * Objetivo principal
+  * Funciones clave (lista numerada)
+  * Requisitos académicos
+  * Experiencia requerida (especificando "Muy Alta/Alta/Media/Baja relevancia")
+  * Habilidades técnicas (clasificadas por importancia)
+  * Competencias blandas requeridas
+  * Condiciones laborales (opcional)
+
+Ejemplo de formato esperado:
+"Descriptor para: Asistente Administrativo
+Objetivo: Gestionar procesos administrativos...
+Funciones:
+1. Manejo de documentación (Alta importancia)
+2. Atención al cliente (Muy Alta importancia)
+...
+Requisitos:
+- Técnico en administración (Muy Alta relevancia)
+- 2 años experiencia (Alta relevancia)..." """
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7  # Para balancear creatividad y estructura
+    )
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
-    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Si el usuario ya tiene un Descriptor de Cargo (por ejemplo, en formato PDF o Word), solicita que lo adjunte.
-Una vez recibido, haz un resumen ejecutivo del Descriptor,
-{descriptor} El resumen debe ser breve, directo y servir como base para evaluar CVs."""
-    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+    prompt = f"""Actúa como un especialista en Recursos Humanos. Resume este descriptor de cargo manteniendo:
+{descriptor}
+
+Instrucciones estrictas:
+1. Usa SOLO categorías textuales (Muy Alta, Alta, Media, Baja) para prioridades
+2. Prohibido usar números, porcentajes o escalas
+3. Estructura el resumen en:
+- Cargo y objetivo (1 línea)
+- 3-5 funciones CRÍTICAS (indicar "Prioridad: [Muy Alta/Alta]")
+- 3-5 requisitos ESENCIALES (indicar "Relevancia: [Muy Alta/Alta]")
+- Perfil ideal resumido
+
+Ejemplo de formato requerido:
+"Resumen: Analista de Datos
+Funciones clave:
+- Limpieza de datos (Prioridad: Muy Alta)
+- Reportes mensuales (Prioridad: Alta)
+Requisitos esenciales:
+- Python (Relevancia: Muy Alta)
+- SQL (Relevancia: Alta)
+Perfil ideal: Profesional meticuloso con..." """
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.5  # Más estructurado que el descriptor completo
+    )
     return response.choices[0].message.content.strip()
 
 def analizar_cv(descriptor, texto_cv):
@@ -48,15 +96,18 @@ def analizar_cv(descriptor, texto_cv):
 Analiza los CVs adjuntos en función del Descriptor de Cargo resumido.
 Descriptor del cargo: {descriptor}
 Currículum del candidato: {texto_cv}
+
 Para cada candidato, entrega:
-Evaluación de Formación Académica
-Evaluación de Experiencia Laboral
-Evaluación de Habilidades Técnicas
-Evaluación de Competencias Blandas
-Fortalezas
-Debilidades
-Nota de Afinidad al Cargo (Muy Alta, Alta, Media, Baja, Muy Baja)
-Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no."""
+1. Evaluación de Formación Académica
+2. Evaluación de Experiencia Laboral
+3. Evaluación de Habilidades Técnicas
+4. Evaluación de Competencias Blandas
+5. Fortalezas
+6. Debilidades
+7. Nota de Afinidad al Cargo (Usar EXCLUSIVAMENTE una de estas categorías: Muy Alta, Alta, Media, Baja, Muy Baja)
+
+Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no.
+NO uses escalas numéricas (1-10 o 1-100), solo las categorías textuales mencionadas."""
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -70,35 +121,57 @@ Presenta la información de forma ordenada y profesional, recomendando si el can
     }
     
 def extraer_nota(texto):
-    import re
+    # Buscar primero si ya existe una categoría textual
     categorias = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
     for cat in categorias:
         if cat.lower() in texto.lower():
             return cat
+    
+    # Si no encuentra categoría textual, buscar nota numérica y convertir
+    patrones_numericos = [
+        r"(\d+)\s*\/\s*100",  # 60/100
+        r"Nota\s*:\s*(\d+)",   # Nota: 6
+        r"(\d+)\s*\/\s*10",    # 6/10
+        r"\b(\d+)\b"           # 6
+    ]
+    
+    for patron in patrones_numericos:
+        match = re.search(patron, texto)
+        if match:
+            nota_num = float(match.group(1))
+            # Convertir a categoría textual
+            if "/100" in texto or "/ 100" in texto:
+                nota_num = nota_num / 10  # Convertir escala 100 a 10
+            
+            if nota_num >= 9: return "Muy Alta"
+            elif nota_num >= 7.5: return "Alta"
+            elif nota_num >= 6: return "Media"
+            elif nota_num >= 4: return "Baja"
+            else: return "Muy Baja"
+    
     return "Sin Clasificar"
 
 def generar_word(resultados, nombre_cargo):
     doc = Document()
     doc.add_heading(f"Reporte de Análisis - {nombre_cargo}", level=1)
     
-    # Ordenamos los resultados de mayor a menor afinidad
+    # Orden de categorías para ordenar los resultados
     orden_afinidad = {"Muy Alta": 0, "Alta": 1, "Media": 2, "Baja": 3, "Muy Baja": 4}
     resultados_ordenados = sorted(resultados, key=lambda x: orden_afinidad.get(x["nota"], 5))
     
     for r in resultados_ordenados:
-        # Añadimos el nombre del candidato y su categoría de afinidad
         doc.add_heading(r["nombre"], level=2)
         
-        # Añadimos un párrafo con la clasificación en color
+        # Añadir categoría de afinidad con estilo destacado
         nivel_afinidad = r["nota"]
-        doc.add_paragraph(f"Nivel de Afinidad: {nivel_afinidad}", style='Heading 3')
+        doc.add_paragraph(f"Nivel de Afinidad: {nivel_afinidad}", style='Intense Quote')
         
-        # Añadimos el análisis completo
-        doc.add_paragraph(r["resultado"])
+        # Limpiar el texto si contiene notas numéricas
+        texto_limpio = re.sub(r'\d+\s*\/\s*\d+', '', r["resultado"])  # Eliminar 60/100
+        texto_limpio = re.sub(r'Nota\s*:\s*\d+', '', texto_limpio)    # Eliminar Nota: 6
+        doc.add_paragraph(texto_limpio)
         
-        # Añadimos un separador entre candidatos
-        doc.add_paragraph("_"*50)
-        doc.add_paragraph()
+        doc.add_page_break()
     
     buffer = BytesIO()
     doc.save(buffer)
@@ -106,15 +179,16 @@ def generar_word(resultados, nombre_cargo):
     return buffer, f"Reporte de Análisis - {nombre_cargo}.docx"
 
 def mostrar_grafico_ranking(resumen):
+    # Convertir a DataFrame y asegurar el orden categórico
     df = pd.DataFrame(resumen)
-    # Definimos el orden categórico para que el gráfico lo respete
-    orden_afinidad = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
-    df["Nota de Afinidad"] = pd.Categorical(df["Nota de Afinidad"], categories=orden_afinidad, ordered=True)
-
+    orden_categorias = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
+    df["Nota de Afinidad"] = pd.Categorical(df["Nota de Afinidad"], categories=orden_categorias, ordered=True)
+    
+    # Crear el gráfico
     fig = px.bar(
-        df.sort_values("Nota de Afinidad", ascending=False),
-        x="Nombre CV",
-        y="Nota de Afinidad",
+        df.sort_values("Nota de Afinidad"),
+        x="Nota de Afinidad",
+        y="Nombre CV",
         color="Nota de Afinidad",
         color_discrete_map={
             "Muy Alta": "#2ecc71",
@@ -123,16 +197,10 @@ def mostrar_grafico_ranking(resumen):
             "Baja": "#e74c3c",
             "Muy Baja": "#c0392b"
         },
-        text="Nota de Afinidad",  # Esto muestra el texto en las barras
-        title="Ranking de Afinidad al Cargo",
-        category_orders={"Nota de Afinidad": orden_afinidad}
+        orientation='h',
+        title="Ranking de Afinidad por Categoría"
     )
-    fig.update_layout(
-        yaxis_title="Nivel de Afinidad",
-        xaxis_title="Candidatos",
-        showlegend=False
-    )
-    fig.update_traces(textposition='outside')
+    fig.update_layout(showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Botón para reiniciar ---
