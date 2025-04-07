@@ -45,57 +45,29 @@ Una vez recibido, haz un resumen ejecutivo del Descriptor,
 
 def analizar_cv(descriptor, texto_cv):
     prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Analiza el siguiente CV en función del Descriptor de Cargo entregado.
+Analiza los CVs adjuntos en función del Descriptor de Cargo resumido.
+Descriptor del cargo: {descriptor}
+Currículum del candidato: {texto_cv}
+Para cada candidato, entrega:
+Evaluación de Formación Académica
+Evaluación de Experiencia Laboral
+Evaluación de Habilidades Técnicas
+Evaluación de Competencias Blandas
+Fortalezas
+Debilidades
+Nota de Afinidad al Cargo (Muy Alta, Alta, Media, Baja, Muy Baja)
+Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no."""
 
-Descriptor del cargo:
-{descriptor}
-
-Currículum del candidato:
-{texto_cv}
-
----
-
-Para cada candidato, realiza lo siguiente:
-
-**Evaluar Formación Académica:**
-- Comparar si el título cumple, excede o no cumple los requisitos del cargo.
-
-**Evaluar Experiencia Laboral:**
-- Verificar si el candidato tiene experiencia en las funciones clave solicitadas y en el sector relevante.
-- Evaluar si tiene la cantidad de años de experiencia requerida o más.
-
-**Evaluar Habilidades Técnicas:**
-- Confirmar si maneja las herramientas, programas o conocimientos técnicos requeridos.
-
-**Evaluar Competencias Blandas:**
-- Revisar si el CV demuestra habilidades como liderazgo, trabajo en equipo, planificación, comunicación, etc., solicitadas en el perfil.
-
-**Identificar Fortalezas y Debilidades:**
-- Mencionar las principales fortalezas (lo que aporta valor al cargo).
-- Mencionar las principales debilidades (lo que puede limitar su desempeño en el cargo).
-
-**Asignar Nota de Afinidad al Cargo:**
-- Muy Alta: Cumple 90%-100% de los requisitos. Es ideal para el cargo.
-- Alta: Cumple entre 75%-89% de los requisitos. Puede adaptarse rápidamente.
-- Media: Cumple entre 50%-74% de los requisitos. Requiere entrenamiento o experiencia adicional.
-- Baja: Cumple entre 25%-49% de los requisitos. Hay brechas importantes.
-- Muy Baja: Cumple menos del 25% de los requisitos. No recomendado.
-
-Presenta la información final de forma ordenada, usando tablas o listas si es posible.
-
-Indica claramente si el candidato es **recomendado o no** para avanzar a la etapa de entrevista.
-
-🔔 Notas adicionales que el sistema debe considerar automáticamente:
-- Si un candidato no tiene el título exigido (por ejemplo, título profesional específico), eso es una brecha crítica.
-- Si no tiene experiencia liderando equipos (cuando el cargo lo requiere), debe ser señalado como debilidad relevante.
-- Si domina herramientas críticas como SAP, Power BI, etc., debe sumarse como fortaleza adicional.
-- Las competencias blandas que se puedan inferir de actividades extracurriculares o certificaciones también deben ser consideradas.
-"""
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content.strip()
+    texto = response.choices[0].message.content.strip()
+    nota = extraer_nota(texto)
+    return {
+        "texto": texto,
+        "nota": nota
+    }
     
 def extraer_nota(texto):
     import re
@@ -110,6 +82,7 @@ def generar_word(resultados, nombre_cargo):
     doc.add_heading(f"Detalle de Análisis para el Cargo: {nombre_cargo}", level=1)
     for r in resultados:
         doc.add_heading(r["nombre"], level=2)
+        doc.add_paragraph(f"Nota de Afinidad al Cargo: {r['nota']}")
         doc.add_paragraph(r["resultado"])
         doc.add_page_break()
     buffer = BytesIO()
@@ -119,22 +92,16 @@ def generar_word(resultados, nombre_cargo):
 
 def mostrar_grafico_ranking(resumen):
     df = pd.DataFrame(resumen)
-
     orden_afinidad = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
-    mapa_numerico = {"Muy Alta": 5, "Alta": 4, "Media": 3, "Baja": 2, "Muy Baja": 1}
-
-    df["Nivel Afinidad"] = pd.Categorical(df["Nota de Afinidad"], categories=orden_afinidad, ordered=True)
-    df = df.sort_values("Nivel Afinidad")
-    df["Afinidad Numérica"] = df["Nota de Afinidad"].map(mapa_numerico)
+    df["Nota de Afinidad"] = pd.Categorical(df["Nota de Afinidad"], categories=orden_afinidad, ordered=True)
 
     fig = px.bar(
-        df,
+        df.sort_values("Nota de Afinidad", ascending=False),
         x="Nombre CV",
-        y="Afinidad Numérica",
+        y="Nota de Afinidad",
         color="Nota de Afinidad",
         text="Nota de Afinidad",
         title="Ranking de Afinidad (Categorías)",
-        category_orders={"Nota de Afinidad": orden_afinidad}
     )
     fig.update_traces(textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
@@ -193,10 +160,14 @@ if st.session_state.descriptor:
                     st.error(f"{archivo.name}: {texto}")
                     continue
                 with st.spinner(f"Analizando {archivo.name}..."):
-                    resultado = analizar_cv(st.session_state.descriptor, texto)
-                nota = extraer_nota(resultado)
-                resultados.append({"nombre": archivo.name, "resultado": resultado, "nota": nota})
-                resumen.append({
+                    analisis = analizar_cv(st.session_state.descriptor, texto)
+resultados.append({
+    "nombre": archivo.name,
+    "resultado": analisis["texto"],
+    "nota": analisis["nota"]
+})
+
+
     "Nombre CV": archivo.name,
     "Cargo": st.session_state.nombre_cargo,
     "Nota de Afinidad": nota  # ← esto será "Alta", "Media", etc.
