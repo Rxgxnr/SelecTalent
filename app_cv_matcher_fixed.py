@@ -140,41 +140,29 @@ elif modo == "💬 Hacer Preguntas":
         st.success("✅ Descriptor generado correctamente.")
 
 # --- Análisis de CVs ---
-if st.session_state.descriptor:
-    st.subheader(f"📝 Descriptor: {st.session_state.nombre_cargo}")
-    st.text_area("Contenido del descriptor:", st.session_state.descriptor, height=150)
-    st.info(f"📌 **Resumen del Descriptor:**\n{st.session_state.resumen_descriptor}")
-
-    st.divider()
-    st.subheader("📄 Carga los CVs en PDF")
-    archivos_cv = st.file_uploader("Selecciona uno o varios archivos", type=["pdf"], accept_multiple_files=True)
-    if archivos_cv:
-        st.session_state.archivos_cv = archivos_cv
-
-    if st.session_state.archivos_cv:
-        if st.button("🔍 Analizar CVs"):
-            resultados, resumen = [], []
-            for archivo in st.session_state.archivos_cv:
-                texto = extraer_texto_pdf(archivo)
-                if texto.startswith("❌"):
-                    st.error(f"{archivo.name}: {texto}")
-                    continue
-                with st.spinner(f"Analizando {archivo.name}..."):
-                    analisis = analizar_cv(st.session_state.descriptor, texto)
-resultados.append({
-    "nombre": archivo.name,
-    "resultado": analisis["texto"],
-    "nota": analisis["nota"]
-})
-
-
-    "Nombre CV": archivo.name,
-    "Cargo": st.session_state.nombre_cargo,
-    "Nota de Afinidad": nota  # ← esto será "Alta", "Media", etc.
-})
-                st.success(f"✅ CV '{archivo.name}' analizado con éxito")
-            st.session_state.resultados = resultados
-            st.session_state.resumen = resumen
+if st.session_state.archivos_cv:
+    if st.button("🔍 Analizar CVs"):
+        resultados, resumen = [], []
+        for archivo in st.session_state.archivos_cv:
+            texto = extraer_texto_pdf(archivo)
+            if texto.startswith("❌"):
+                st.error(f"{archivo.name}: {texto}")
+                continue
+            with st.spinner(f"Analizando {archivo.name}..."):
+                analisis = analizar_cv(st.session_state.descriptor, texto)
+                resultados.append({
+                    "nombre": archivo.name,
+                    "resultado": analisis["texto"],
+                    "nota": analisis["nota"]
+                })
+                resumen.append({
+                    "Nombre CV": archivo.name,
+                    "Cargo": st.session_state.nombre_cargo,
+                    "Nota de Afinidad": analisis["nota"]
+                })
+            st.success(f"✅ CV '{archivo.name}' analizado con éxito")
+        st.session_state.resultados = resultados
+        st.session_state.resumen = resumen
 
 # --- Exportación y Visualización ---
 if st.session_state.resultados:
