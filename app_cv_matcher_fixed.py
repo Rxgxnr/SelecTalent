@@ -45,21 +45,58 @@ Una vez recibido, haz un resumen ejecutivo del Descriptor,
 
 def analizar_cv(descriptor, texto_cv):
     prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Analiza los CVs adjuntos en función del Descriptor de Cargo resumido.
-Descriptor del cargo: {descriptor}
-Currículum del candidato: {texto_cv}
-Para cada candidato, entrega:
-Evaluación de Formación Académica
-Evaluación de Experiencia Laboral
-Evaluación de Habilidades Técnicas
-Evaluación de Competencias Blandas
-Fortalezas
-Debilidades
-Nota de Afinidad al Cargo (Muy Alta, Alta, Media, Baja, Muy Baja)
-Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no."""
-    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
-    return response.choices[0].message.content.strip()
+Analiza el siguiente CV en función del Descriptor de Cargo entregado.
 
+Descriptor del cargo:
+{descriptor}
+
+Currículum del candidato:
+{texto_cv}
+
+---
+
+Para cada candidato, realiza lo siguiente:
+
+**Evaluar Formación Académica:**
+- Comparar si el título cumple, excede o no cumple los requisitos del cargo.
+
+**Evaluar Experiencia Laboral:**
+- Verificar si el candidato tiene experiencia en las funciones clave solicitadas y en el sector relevante.
+- Evaluar si tiene la cantidad de años de experiencia requerida o más.
+
+**Evaluar Habilidades Técnicas:**
+- Confirmar si maneja las herramientas, programas o conocimientos técnicos requeridos.
+
+**Evaluar Competencias Blandas:**
+- Revisar si el CV demuestra habilidades como liderazgo, trabajo en equipo, planificación, comunicación, etc., solicitadas en el perfil.
+
+**Identificar Fortalezas y Debilidades:**
+- Mencionar las principales fortalezas (lo que aporta valor al cargo).
+- Mencionar las principales debilidades (lo que puede limitar su desempeño en el cargo).
+
+**Asignar Nota de Afinidad al Cargo:**
+- Muy Alta: Cumple 90%-100% de los requisitos. Es ideal para el cargo.
+- Alta: Cumple entre 75%-89% de los requisitos. Puede adaptarse rápidamente.
+- Media: Cumple entre 50%-74% de los requisitos. Requiere entrenamiento o experiencia adicional.
+- Baja: Cumple entre 25%-49% de los requisitos. Hay brechas importantes.
+- Muy Baja: Cumple menos del 25% de los requisitos. No recomendado.
+
+Presenta la información final de forma ordenada, usando tablas o listas si es posible.
+
+Indica claramente si el candidato es **recomendado o no** para avanzar a la etapa de entrevista.
+
+🔔 Notas adicionales que el sistema debe considerar automáticamente:
+- Si un candidato no tiene el título exigido (por ejemplo, título profesional específico), eso es una brecha crítica.
+- Si no tiene experiencia liderando equipos (cuando el cargo lo requiere), debe ser señalado como debilidad relevante.
+- Si domina herramientas críticas como SAP, Power BI, etc., debe sumarse como fortaleza adicional.
+- Las competencias blandas que se puedan inferir de actividades extracurriculares o certificaciones también deben ser consideradas.
+"""
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
+    
 def extraer_nota(texto):
     import re
     categorias = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
