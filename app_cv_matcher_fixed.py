@@ -79,19 +79,35 @@ def extraer_nota(texto):
 
 def generar_word(resultados, nombre_cargo):
     doc = Document()
-    doc.add_heading(f"Detalle de Análisis para el Cargo: {nombre_cargo}", level=1)
-    for r in resultados:
+    doc.add_heading(f"Reporte de Análisis - {nombre_cargo}", level=1)
+    
+    # Ordenamos los resultados de mayor a menor afinidad
+    orden_afinidad = {"Muy Alta": 0, "Alta": 1, "Media": 2, "Baja": 3, "Muy Baja": 4}
+    resultados_ordenados = sorted(resultados, key=lambda x: orden_afinidad.get(x["nota"], 5))
+    
+    for r in resultados_ordenados:
+        # Añadimos el nombre del candidato y su categoría de afinidad
         doc.add_heading(r["nombre"], level=2)
-        doc.add_paragraph(f"Nota de Afinidad al Cargo: {r['nota']}")
+        
+        # Añadimos un párrafo con la clasificación en color
+        nivel_afinidad = r["nota"]
+        doc.add_paragraph(f"Nivel de Afinidad: {nivel_afinidad}", style='Heading 3')
+        
+        # Añadimos el análisis completo
         doc.add_paragraph(r["resultado"])
-        doc.add_page_break()
+        
+        # Añadimos un separador entre candidatos
+        doc.add_paragraph("_"*50)
+        doc.add_paragraph()
+    
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    return buffer, f"Detalle ({nombre_cargo}).docx"
+    return buffer, f"Reporte de Análisis - {nombre_cargo}.docx"
 
 def mostrar_grafico_ranking(resumen):
     df = pd.DataFrame(resumen)
+    # Definimos el orden categórico para que el gráfico lo respete
     orden_afinidad = ["Muy Alta", "Alta", "Media", "Baja", "Muy Baja"]
     df["Nota de Afinidad"] = pd.Categorical(df["Nota de Afinidad"], categories=orden_afinidad, ordered=True)
 
@@ -100,8 +116,21 @@ def mostrar_grafico_ranking(resumen):
         x="Nombre CV",
         y="Nota de Afinidad",
         color="Nota de Afinidad",
-        text="Nota de Afinidad",
-        title="Ranking de Afinidad (Categorías)",
+        color_discrete_map={
+            "Muy Alta": "#2ecc71",
+            "Alta": "#27ae60",
+            "Media": "#f39c12",
+            "Baja": "#e74c3c",
+            "Muy Baja": "#c0392b"
+        },
+        text="Nota de Afinidad",  # Esto muestra el texto en las barras
+        title="Ranking de Afinidad al Cargo",
+        category_orders={"Nota de Afinidad": orden_afinidad}
+    )
+    fig.update_layout(
+        yaxis_title="Nivel de Afinidad",
+        xaxis_title="Candidatos",
+        showlegend=False
     )
     fig.update_traces(textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
