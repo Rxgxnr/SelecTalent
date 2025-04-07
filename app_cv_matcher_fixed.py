@@ -161,7 +161,7 @@ if st.session_state.descriptor:
                 resultados.append({"nombre": archivo.name, "resultado": resultado, "nota": nota})
                 resumen.append({
     "Nombre CV": archivo.name,
-    "Cargo": nombre_cargo,
+    "Cargo": st.session_state.nombre_cargo,
     "Nota de Afinidad": nota  # ← esto será "Alta", "Media", etc.
 })
                 st.success(f"✅ CV '{archivo.name}' analizado con éxito")
@@ -171,7 +171,7 @@ if st.session_state.descriptor:
 # --- Exportación y Visualización ---
 if st.session_state.resultados:
     st.divider()
-    st.subheader("📊 Ranking Visual de Afinidad (1 a 10)")
+    st.subheader("📊 Ranking Visual de Afinidad (Categorías)")
     mostrar_grafico_ranking(st.session_state.resumen)
 
     st.divider()
