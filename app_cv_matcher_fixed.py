@@ -208,19 +208,36 @@ if st.session_state.descriptor:
 # --- Exportación y Visualización ---
 if st.session_state.resultados:
     st.divider()
-    st.subheader("📊 Ranking Visual de Afinidad (Categorías)")
+    st.subheader("📊 Ranking Visual de Afinidad (Muy Alta → Muy Baja)")
     mostrar_grafico_ranking(st.session_state.resumen)
 
     st.divider()
     st.subheader("📥 Exportar Resultados")
     col1, col2 = st.columns(2)
+
+    # EXCEL
     with col1:
-        df = pd.DataFrame(st.session_state.resumen)
+        df = pd.DataFrame([
+            {
+                "Nombre CV": r["nombre"],
+                "Cargo": st.session_state.nombre_cargo,
+                "Nota de Afinidad": r["nota"]
+            } for r in st.session_state.resultados
+        ])
         excel_buffer = BytesIO()
         df.to_excel(excel_buffer, index=False)
         excel_buffer.seek(0)
-        st.download_button("📊 Descargar Excel", excel_buffer, file_name=f"Nota ({st.session_state.nombre_cargo}).xlsx")
+        st.download_button(
+            "📊 Descargar Excel",
+            excel_buffer,
+            file_name=f"Resumen Afinidad - {st.session_state.nombre_cargo}.xlsx"
+        )
 
+    # WORD
     with col2:
         word_data, word_name = generar_word(st.session_state.resultados, st.session_state.nombre_cargo)
-        st.download_button("📄 Descargar Word", word_data, file_name=word_name)
+        st.download_button(
+            "📄 Descargar Word",
+            word_data,
+            file_name=word_name
+        )
