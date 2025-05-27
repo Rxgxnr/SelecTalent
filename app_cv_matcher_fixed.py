@@ -105,7 +105,7 @@ if modo == "📂 Cargar Descriptor":
 
             st.session_state.resumen_descriptor = resumen
             st.success("✅ Descriptor cargado correctamente.")
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Error al procesar el archivo: {str(e)}")
 
