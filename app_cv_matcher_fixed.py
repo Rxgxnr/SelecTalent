@@ -99,9 +99,12 @@ if modo == "📂 Cargar Descriptor":
         st.session_state.descriptor = descriptor
         st.session_state.nombre_cargo = archivo.name.rsplit(".", 1)[0]
         with st.spinner("Generando resumen del descriptor..."):
-            st.session_state.resumen_descriptor = generar_resumen_descriptor(descriptor)
-        st.success("✅ Descriptor cargado correctamente.")
-        st.rerun()
+    resumen = generar_resumen_descriptor(descriptor)
+
+st.session_state.resumen_descriptor = resumen
+st.success("✅ Descriptor cargado y resumido correctamente.")
+st.rerun()
+
 
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
