@@ -4,16 +4,15 @@ import fitz
 import pandas as pd
 from docx import Document
 from io import BytesIO
-import re
 
 # --- Configuración Inicial ---
 st.set_page_config(page_title="Bienvenido/a a SelecTalent", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- Inicialización de Estado ---
-for key in ["archivos_cv", "resultados", "descriptor", "nombre_cargo", "resumen_descriptor", "resumen"]:
+for key in ["archivos_cv", "resultados", "descriptor", "nombre_cargo", "resumen_descriptor"]:
     if key not in st.session_state:
-        st.session_state[key] = [] if key in ["archivos_cv", "resultados", "resumen"] else ""
+        st.session_state[key] = [] if key in ["archivos_cv", "resultados"] else ""
 
 # --- Funciones ---
 def extraer_texto_pdf(file):
@@ -25,20 +24,18 @@ def extraer_texto_pdf(file):
 
 def generar_descriptor(p1, p2, p3):
     prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Crea un Descriptor de Cargo profesional y detallado con base en:
+Crea un Descriptor de Cargo profesional con base en:
 1. Tipo de cargo: {p1}
 2. Habilidades técnicas necesarias: {p2}
 3. Perfil humano deseable: {p3}
-
 Solo incluye texto estructurado (sin evaluaciones ni ranking)."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
     prompt = f"""Actúa como un especialista en Recursos Humanos.
-Resume este Descriptor de Cargo de manera profesional y clara:
+Resume este Descriptor de Cargo de forma clara y profesional:
 {descriptor}
-
 No incluyas evaluaciones ni escalas numéricas."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
@@ -80,21 +77,16 @@ def generar_word(resultados, nombre_cargo):
 # --- Botón para reiniciar ---
 if st.button("🔄 Consultar Otro Cargo"):
     st.session_state.clear()
-    st.rerun()
 
 # --- Título Principal ---
 st.title("🤖 SelecTalent: Análisis de CV con IA")
-
-# --- Mostrar estado actual ---
-if st.session_state.get('descriptor'):
-    st.sidebar.success(f"Cargo actual: {st.session_state.nombre_cargo}")
 
 # --- Entrada de Descriptor ---
 modo = st.radio("¿Quieres cargar un descriptor o prefieres que te ayude?", ["📂 Cargar Descriptor", "💬 Hacer Preguntas"])
 
 if modo == "📂 Cargar Descriptor":
     archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"])
-    if archivo is not None:
+    if archivo:
         try:
             descriptor = archivo.read().decode("utf-8") if archivo.type == "text/plain" else extraer_texto_pdf(archivo)
             st.session_state.descriptor = descriptor
@@ -105,9 +97,8 @@ if modo == "📂 Cargar Descriptor":
 
             st.session_state.resumen_descriptor = resumen
             st.success("✅ Descriptor cargado correctamente.")
-            st.rerun()
         except Exception as e:
-            st.error(f"Error al procesar el archivo: {str(e)}")
+            st.error(f"❌ Error al procesar el archivo: {str(e)}")
 
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
@@ -120,10 +111,9 @@ elif modo == "💬 Hacer Preguntas":
         st.session_state.nombre_cargo = p1
         st.session_state.resumen_descriptor = generar_resumen_descriptor(st.session_state.descriptor)
         st.success("✅ Descriptor generado correctamente.")
-        st.rerun()
 
 # --- Análisis de CVs ---
-if st.session_state.get('descriptor') and st.session_state.get('resumen_descriptor'):
+if st.session_state.descriptor and st.session_state.resumen_descriptor:
     st.subheader(f"📝 Descriptor: {st.session_state.nombre_cargo}")
     with st.expander("Ver descriptor completo"):
         st.text_area("", st.session_state.descriptor, height=150, label_visibility="collapsed")
@@ -152,21 +142,18 @@ if st.session_state.get('descriptor') and st.session_state.get('resumen_descript
                     })
                 st.success(f"✅ CV '{archivo.name}' analizado con éxito")
             st.session_state.resultados = resultados
-            st.rerun()
 
 # --- Exportación ---
-if st.session_state.get('resultados'):
+if st.session_state.resultados:
     st.divider()
     st.subheader("📥 Exportar Resultados")
     col1, col2 = st.columns(2)
 
     with col1:
-        df = pd.DataFrame([
-            {
-                "Nombre CV": r["nombre"],
-                "Cargo": st.session_state.nombre_cargo,
-            } for r in st.session_state.resultados
-        ])
+        df = pd.DataFrame([{
+            "Nombre CV": r["nombre"],
+            "Cargo": st.session_state.nombre_cargo,
+        } for r in st.session_state.resultados])
         excel_buffer = BytesIO()
         df.to_excel(excel_buffer, index=False)
         excel_buffer.seek(0)
