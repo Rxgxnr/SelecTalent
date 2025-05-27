@@ -105,7 +105,6 @@ st.session_state.resumen_descriptor = resumen
 st.success("✅ Descriptor cargado y resumido correctamente.")
 st.rerun()
 
-
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
         p1 = st.text_input("¿Qué tipo de cargo buscas?")
