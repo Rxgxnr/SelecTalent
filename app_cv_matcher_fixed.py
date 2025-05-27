@@ -101,7 +101,7 @@ if modo == "📂 Cargar Descriptor":
         with st.spinner("Generando resumen del descriptor..."):
             st.session_state.resumen_descriptor = generar_resumen_descriptor(descriptor)
         st.success("✅ Descriptor cargado correctamente.")
-        st.experimental_rerun()
+        st.rerun()
 
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
@@ -114,7 +114,7 @@ elif modo == "💬 Hacer Preguntas":
         st.session_state.nombre_cargo = p1
         st.session_state.resumen_descriptor = generar_resumen_descriptor(st.session_state.descriptor)
         st.success("✅ Descriptor generado correctamente.")
-        st.experimental_rerun()
+        st.rerun()
 
 # --- Análisis de CVs ---
 if st.session_state.get('descriptor') and st.session_state.get('resumen_descriptor'):
@@ -144,7 +144,7 @@ if st.session_state.get('descriptor') and st.session_state.get('resumen_descript
                     })
                 st.success(f"✅ CV '{archivo.name}' analizado con éxito")
             st.session_state.resultados = resultados
-            st.experimental_rerun()
+            st.rerun()
 
 # --- Exportación ---
 if st.session_state.get('resultados'):
