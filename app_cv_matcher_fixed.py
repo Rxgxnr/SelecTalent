@@ -21,14 +21,29 @@ def extraer_texto_pdf(file):
         return f"❌ Error al leer PDF: {e}"
 
 def generar_descriptor(p1, p2, p3):
-    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Solicita al usuario información sobre la empresa, el área que contratará, el objetivo general del puesto, principales funciones, requisitos académicos, experiencia laboral deseada, habilidades técnicas y competencias blandas.
-Con esta información, genera un Descriptor de Cargo completo, siguiendo el formato estándar:
-1. ¿Qué tipo de cargo buscas?: {p1}
-2. ¿Qué conocimientos técnicos o habilidades necesita?: {p2}
-3. ¿Qué perfil humano o experiencia previa es deseable?: {p3}
-El descriptor debe ser claro, formal y ordenado, listo para usarse en procesos de reclutamiento."""
-    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+    prompt = f"""
+Actúa como un Agente de Recursos Humanos experto en redacción de perfiles de cargo. A partir de la siguiente información proporcionada por el usuario, redacta un Descriptor de Cargo completo, listo para ser utilizado en procesos de reclutamiento.
+
+Información proporcionada:
+1. Cargo solicitado: {p1}
+2. Habilidades técnicas necesarias: {p2}
+3. Perfil humano y experiencia deseable: {p3}
+
+Estructura esperada del descriptor:
+- Título del cargo
+- Objetivo del cargo (1 párrafo)
+- Funciones principales (lista numerada)
+- Requisitos académicos
+- Experiencia laboral deseada
+- Habilidades técnicas (clasificadas por nivel de importancia si es posible)
+- Competencias blandas
+
+El texto debe ser claro, profesional y redactado en tono formal. NO debes hacer preguntas adicionales al usuario.
+"""
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
