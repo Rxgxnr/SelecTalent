@@ -133,7 +133,7 @@ if st.session_state.get('descriptor') and st.session_state.get('resumen_descript
     st.subheader("📄 Carga los CVs en PDF")
     archivos_cv = st.file_uploader("Selecciona uno o varios archivos", type=["pdf"], accept_multiple_files=True)
     
-    if archivos_cv:
+if archivos_cv:
     if st.button("🔍 Analizar CVs"):
         st.session_state.archivos_cv = archivos_cv
         resultados = []
