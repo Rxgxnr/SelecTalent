@@ -98,7 +98,7 @@ if modo == "📂 Cargar Descriptor":
         descriptor = archivo.read().decode("utf-8") if archivo.type == "text/plain" else extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
         st.session_state.nombre_cargo = archivo.name.rsplit(".", 1)[0]
-        with st.spinner("Generando resumen del descriptor..."):
+with st.spinner("Generando resumen del descriptor..."):
     resumen = generar_resumen_descriptor(descriptor)
 
 st.session_state.resumen_descriptor = resumen
