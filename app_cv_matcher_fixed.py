@@ -77,6 +77,7 @@ def generar_word(resultados, nombre_cargo):
 # --- Botón para reiniciar ---
 if st.button("🔄 Consultar Otro Cargo"):
     st.session_state.clear()
+    st.rerun()
 
 # --- Título Principal ---
 st.title("🤖 SelecTalent: Análisis de CV con IA")
