@@ -95,15 +95,19 @@ modo = st.radio("¿Quieres cargar un descriptor o prefieres que te ayude?", ["�
 if modo == "📂 Cargar Descriptor":
     archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"])
     if archivo is not None:
-        descriptor = archivo.read().decode("utf-8") if archivo.type == "text/plain" else extraer_texto_pdf(archivo)
-        st.session_state.descriptor = descriptor
-        st.session_state.nombre_cargo = archivo.name.rsplit(".", 1)[0]
-with st.spinner("Generando resumen del descriptor..."):
-    resumen = generar_resumen_descriptor(descriptor)
+        try:
+            descriptor = archivo.read().decode("utf-8") if archivo.type == "text/plain" else extraer_texto_pdf(archivo)
+            st.session_state.descriptor = descriptor
+            st.session_state.nombre_cargo = archivo.name.rsplit(".", 1)[0]
 
-st.session_state.resumen_descriptor = resumen
-st.success("✅ Descriptor cargado y resumido correctamente.")
-st.rerun()
+            with st.spinner("Generando resumen del descriptor..."):
+                resumen = generar_resumen_descriptor(descriptor)
+
+            st.session_state.resumen_descriptor = resumen
+            st.success("✅ Descriptor cargado correctamente.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {str(e)}")
 
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
