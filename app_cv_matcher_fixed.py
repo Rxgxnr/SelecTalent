@@ -152,7 +152,7 @@ if st.session_state.get('descriptor') and st.session_state.get('resumen_descript
                     })
                 st.success(f"✅ CV '{archivo.name}' analizado con éxito")
             st.session_state.resultados = resultados
-            st.experimental_rerun()
+            st.rerun()
 
 # --- Exportación ---
 if st.session_state.get('resultados'):
