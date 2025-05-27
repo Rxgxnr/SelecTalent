@@ -149,9 +149,8 @@ if archivos_cv:
                     "resultado": analisis
                 })
             st.success(f"✅ CV '{archivo.name}' analizado con éxito")
-
         st.session_state.resultados = resultados
-        st.rerun() # 🔄 Refresca la app para mostrar resultados abajo
+        st.experimental_rerun()
 
 # --- Exportación ---
 if st.session_state.get('resultados'):
