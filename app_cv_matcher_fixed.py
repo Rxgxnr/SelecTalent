@@ -4,81 +4,70 @@ import fitz
 import pandas as pd
 from docx import Document
 from io import BytesIO
-import plotly.express as px
+import re
 
+# --- Configuración Inicial ---
 st.set_page_config(page_title="Bienvenido/a a SelecTalent", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# --- Inicialización de Estado ---
+for key in ["archivos_cv", "resultados", "descriptor", "nombre_cargo", "resumen_descriptor", "resumen"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if key in ["archivos_cv", "resultados", "resumen"] else ""
 
 # --- Funciones ---
 def extraer_texto_pdf(file):
     try:
         doc = fitz.open(stream=file.read(), filetype="pdf")
-        texto = ""
-        for page in doc:
-            texto += page.get_text()
-        return texto
+        return "".join([page.get_text() for page in doc])
     except Exception as e:
         return f"❌ Error al leer PDF: {e}"
 
 def generar_descriptor(p1, p2, p3):
-    prompt = f"""
-Actúa como un Agente de Recursos Humanos experto en redacción de perfiles de cargo. A partir de la siguiente información proporcionada por el usuario, redacta un Descriptor de Cargo completo, listo para ser utilizado en procesos de reclutamiento.
-
-Información proporcionada:
-1. Cargo solicitado: {p1}
+    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
+Crea un Descriptor de Cargo profesional y detallado con base en:
+1. Tipo de cargo: {p1}
 2. Habilidades técnicas necesarias: {p2}
-3. Perfil humano y experiencia deseable: {p3}
+3. Perfil humano deseable: {p3}
 
-Estructura esperada del descriptor:
-- Título del cargo
-- Objetivo del cargo (1 párrafo)
-- Funciones principales (lista numerada)
-- Requisitos académicos
-- Experiencia laboral deseada
-- Habilidades técnicas (clasificadas por nivel de importancia si es posible)
-- Competencias blandas
-
-El texto debe ser claro, profesional y redactado en tono formal. NO debes hacer preguntas adicionales al usuario.
-"""
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
-    )
+Solo incluye texto estructurado (sin evaluaciones ni ranking)."""
+    response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def generar_resumen_descriptor(descriptor):
-    prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Si el usuario ya tiene un Descriptor de Cargo (por ejemplo, en formato PDF o Word), solicita que lo adjunte.
-Una vez recibido, haz un resumen ejecutivo del Descriptor,
-{descriptor} El resumen debe ser breve, directo y servir como base para evaluar CVs."""
+    prompt = f"""Actúa como un especialista en Recursos Humanos.
+Resume este Descriptor de Cargo de manera profesional y clara:
+{descriptor}
+
+No incluyas evaluaciones ni escalas numéricas."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
 def analizar_cv(descriptor, texto_cv):
     prompt = f"""Actúa como un Agente de Recursos Humanos experto.
-Analiza los CVs adjuntos en función del Descriptor de Cargo resumido.
-Descriptor del cargo: {descriptor}
-Currículum del candidato: {texto_cv}
-Para cada candidato, entrega:
-Evaluación de Formación Académica
-Evaluación de Experiencia Laboral
-Evaluación de Habilidades Técnicas
-Evaluación de Competencias Blandas
-Fortalezas
-Debilidades
-Nota de Afinidad al Cargo (Muy Alta, Alta, Media, Baja, Muy Baja)
-Presenta la información de forma ordenada y profesional, recomendando si el candidato debería avanzar a entrevista o no."""
+Analiza el siguiente CV en función del descriptor entregado.
+
+Descriptor del cargo:
+{descriptor}
+
+Currículum del candidato:
+{texto_cv}
+
+Indica:
+- Evaluación académica
+- Experiencia laboral
+- Habilidades técnicas
+- Competencias blandas
+- Fortalezas y debilidades
+- Recomendación general (avanzar o no a entrevista)
+
+NO incluyas notas ni rankings de afinidad."""
     response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content.strip()
 
-def extraer_nota(texto):
-    import re
-    match = re.search(r"Nota de afinidad.*?(\d+)", texto)
-    return int(match.group(1)) if match else 0
-
 def generar_word(resultados, nombre_cargo):
     doc = Document()
-    doc.add_heading(f"Detalle de Análisis para el Cargo: {nombre_cargo}", level=1)
+    doc.add_heading(f"Reporte de Análisis - {nombre_cargo}", level=1)
     for r in resultados:
         doc.add_heading(r["nombre"], level=2)
         doc.add_paragraph(r["resultado"])
@@ -86,54 +75,33 @@ def generar_word(resultados, nombre_cargo):
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    return buffer, f"Detalle ({nombre_cargo}).docx"
+    return buffer, f"Reporte de Análisis - {nombre_cargo}.docx"
 
-def mostrar_grafico_ranking(resumen):
-    df = pd.DataFrame(resumen)
-    df["Nota 1-10"] = (df["Nota de Afinidad"] / 10).round(1).clip(upper=10)
-    fig = px.bar(
-        df.sort_values("Nota 1-10", ascending=False),
-        x="Nombre CV",
-        y="Nota 1-10",
-        color="Nota 1-10",
-        text="Nota 1-10",
-        title="Ranking de Afinidad (Escala 1-10)"
-    )
-    fig.update_traces(textposition='outside')
-    st.plotly_chart(fig, use_container_width=True)
-
-# --- Reinicio de app ---
+# --- Botón para reiniciar ---
 if st.button("🔄 Consultar Otro Cargo"):
     st.session_state.clear()
     st.rerun()
 
-# --- Inicio ---
+# --- Título Principal ---
 st.title("🤖 SelecTalent: Análisis de CV con IA")
 
-if "archivos_cv" not in st.session_state:
-    st.session_state.archivos_cv = []
-if "resultados" not in st.session_state:
-    st.session_state.resultados = []
-if "descriptor" not in st.session_state:
-    st.session_state.descriptor = ""
+# --- Mostrar estado actual ---
+if st.session_state.get('descriptor'):
+    st.sidebar.success(f"Cargo actual: {st.session_state.nombre_cargo}")
 
+# --- Entrada de Descriptor ---
 modo = st.radio("¿Quieres cargar un descriptor o prefieres que te ayude?", ["📂 Cargar Descriptor", "💬 Hacer Preguntas"])
-
-nombre_cargo = ""
 
 if modo == "📂 Cargar Descriptor":
     archivo = st.file_uploader("Sube un descriptor en .txt o .pdf", type=["txt", "pdf"])
-    if archivo:
-        if archivo.type == "text/plain":
-            descriptor = archivo.read().decode("utf-8")
-        elif archivo.type == "application/pdf":
-            descriptor = extraer_texto_pdf(archivo)
+    if archivo is not None:
+        descriptor = archivo.read().decode("utf-8") if archivo.type == "text/plain" else extraer_texto_pdf(archivo)
         st.session_state.descriptor = descriptor
-        st.session_state.nombre_cargo = archivo.name.replace(".txt", "").replace(".pdf", "")
-        if "resumen_descriptor" not in st.session_state:
-            resumen_desc = generar_resumen_descriptor(descriptor)
-            st.session_state.resumen_descriptor = resumen_desc
+        st.session_state.nombre_cargo = archivo.name.rsplit(".", 1)[0]
+        with st.spinner("Generando resumen del descriptor..."):
+            st.session_state.resumen_descriptor = generar_resumen_descriptor(descriptor)
         st.success("✅ Descriptor cargado correctamente.")
+        st.experimental_rerun()
 
 elif modo == "💬 Hacer Preguntas":
     with st.form("formulario"):
@@ -142,67 +110,60 @@ elif modo == "💬 Hacer Preguntas":
         p3 = st.text_input("¿Qué perfil humano o experiencia previa es deseable?")
         enviar = st.form_submit_button("Generar descriptor")
     if enviar:
-        descriptor_generado = generar_descriptor(p1, p2, p3)
-        st.session_state.descriptor = descriptor_generado
-        nombre_cargo = p1
-        st.session_state.nombre_cargo = nombre_cargo
-        resumen_desc = generar_resumen_descriptor(descriptor_generado)
-        st.session_state.resumen_descriptor = resumen_desc
-        st.success("✅ Descriptor generado correctamente")
+        st.session_state.descriptor = generar_descriptor(p1, p2, p3)
+        st.session_state.nombre_cargo = p1
+        st.session_state.resumen_descriptor = generar_resumen_descriptor(st.session_state.descriptor)
+        st.success("✅ Descriptor generado correctamente.")
+        st.experimental_rerun()
 
-# --- Análisis y carga de CVs ---
-if st.session_state.get("descriptor"):
-    descriptor = st.session_state.descriptor
-    nombre_cargo = st.session_state.get("nombre_cargo", "")
-    resumen_descriptor = st.session_state.get("resumen_descriptor", "")
-
-    st.subheader(f"📝 Descriptor: {nombre_cargo}")
-    st.text_area("Contenido del descriptor:", descriptor, height=150)
-    if resumen_descriptor:
-        st.info(f"📌 **Resumen del Descriptor:**\n{resumen_descriptor}")
+# --- Análisis de CVs ---
+if st.session_state.get('descriptor') and st.session_state.get('resumen_descriptor'):
+    st.subheader(f"📝 Descriptor: {st.session_state.nombre_cargo}")
+    with st.expander("Ver descriptor completo"):
+        st.text_area("", st.session_state.descriptor, height=150, label_visibility="collapsed")
+    st.info(f"📌 **Resumen del Descriptor:**\n{st.session_state.resumen_descriptor}")
 
     st.divider()
     st.subheader("📄 Carga los CVs en PDF")
     archivos_cv = st.file_uploader("Selecciona uno o varios archivos", type=["pdf"], accept_multiple_files=True)
+    
     if archivos_cv:
         st.session_state.archivos_cv = archivos_cv
-
-    if st.session_state.archivos_cv:
         if st.button("🔍 Analizar CVs"):
             resultados = []
-            resumen = []
             for archivo in st.session_state.archivos_cv:
                 texto = extraer_texto_pdf(archivo)
                 if texto.startswith("❌"):
                     st.error(f"{archivo.name}: {texto}")
-                else:
-                    with st.spinner(f"Analizando {archivo.name}..."):
-                        resultado = analizar_cv(descriptor, texto)
-                    nota = extraer_nota(resultado)
-                    resultados.append({"nombre": archivo.name, "resultado": resultado, "nota": nota})
-                    resumen.append({"Nombre CV": archivo.name, "Cargo": nombre_cargo, "Nota de Afinidad": nota})
-                    st.success(f"✅ CV '{archivo.name}' analizado con éxito")
-
+                    continue
+                with st.spinner(f"Analizando {archivo.name}..."):
+                    analisis = analizar_cv(st.session_state.descriptor, texto)
+                    resultados.append({
+                        "nombre": archivo.name,
+                        "resultado": analisis
+                    })
+                st.success(f"✅ CV '{archivo.name}' analizado con éxito")
             st.session_state.resultados = resultados
-            st.session_state.resumen = resumen
+            st.experimental_rerun()
 
-# --- Exportación y Ranking ---
-if st.session_state.get("resultados"):
-    st.divider()
-    st.subheader("📊 Ranking Visual de Afinidad (1 a 10)")
-    mostrar_grafico_ranking(st.session_state.resumen)
-
+# --- Exportación ---
+if st.session_state.get('resultados'):
     st.divider()
     st.subheader("📥 Exportar Resultados")
     col1, col2 = st.columns(2)
 
     with col1:
-        df = pd.DataFrame(st.session_state.resumen)
+        df = pd.DataFrame([
+            {
+                "Nombre CV": r["nombre"],
+                "Cargo": st.session_state.nombre_cargo,
+            } for r in st.session_state.resultados
+        ])
         excel_buffer = BytesIO()
         df.to_excel(excel_buffer, index=False)
         excel_buffer.seek(0)
-        st.download_button("📊 Descargar Excel", excel_buffer, file_name=f"Nota ({nombre_cargo}).xlsx")
+        st.download_button("📊 Descargar Excel", excel_buffer, file_name=f"Resumen - {st.session_state.nombre_cargo}.xlsx")
 
     with col2:
-        word_data, word_name = generar_word(st.session_state.resultados, nombre_cargo)
+        word_data, word_name = generar_word(st.session_state.resultados, st.session_state.nombre_cargo)
         st.download_button("📄 Descargar Word", word_data, file_name=word_name)
